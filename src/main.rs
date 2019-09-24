@@ -167,7 +167,7 @@ fn remove_code(buffer: &String) -> String {
                         let mut t = tag.split('=');
                         t.next();
                         if let Some(lang) = t.next() {
-                            output.push_str("??? \"Check your code\"\n");
+                            output.push_str("??? question \"Check your code\"\n");
                             output.push_str(&format!("    ```{}\n", lang));
                             let content = remove_non_code(&buffer, lang, None, Some(i));
                             let content: String = content.lines()
