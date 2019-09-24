@@ -11,6 +11,19 @@ const SKIP: &'static str = "SKIP";
 const HIDE: &'static str = "HIDE";
 const EXTERNAL: &'static str = "EXTERNAL";
 const CHECK: &'static str = "CHECK";
+const MODE: &'static str = "MODE";
+
+#[derive(Debug)]
+struct Mode {
+    m: String,
+    state: ModeState,
+}
+#[derive(Clone, Debug)]
+enum ModeState {
+    Active,
+    Disabled,
+    Off,
+}
 
 fn main() -> std::io::Result<()> {
     let matches = App::new("single source")
@@ -22,7 +35,8 @@ fn main() -> std::io::Result<()> {
                     .args_from_usage(
                         "<INPUT>              'Sets the input md file to use'
                         <OUTPUT>              'Sets the file to render output to'
-                        <LANG>              'Sets the language so only these tags will be generated ie. rust will get all ```rust tags'"))
+                        <LANG>              'Sets the language so only these tags will be generated ie. rust will get all ```rust tags'
+                        [MODE]              'Sets the mode for this run. Is useful for generating different files from the same languag'"))
         .subcommand(SubCommand::with_name("md")
                     .about("Generates code file.")
                     .args_from_usage(
@@ -42,6 +56,7 @@ fn generate_code(matches: &ArgMatches) -> std::io::Result<()> {
     let input_file = matches.value_of("INPUT").unwrap();
     let output_file = matches.value_of("OUTPUT").unwrap();
     let lang = matches.value_of("LANG").unwrap();
+    let mode = matches.value_of("MODE");
 
     let input_path = Path::new(&input_file)
         .parent()
@@ -51,7 +66,7 @@ fn generate_code(matches: &ArgMatches) -> std::io::Result<()> {
     input_file.read_to_end(&mut buffer)?;
 
     let input_buffer = String::from_utf8(buffer).expect("Failed to parse buffer as U8");
-    let just_code = remove_non_code(&input_buffer, lang, Some(input_path), None);
+    let just_code = remove_non_code(&input_buffer, lang, Some(input_path), None, mode);
     let mut out = File::create(output_file)?;
     write!(&mut out, "{}", just_code)?;
     Ok(())
@@ -77,12 +92,14 @@ fn remove_non_code(
     lang: &str,
     input_path: Option<&Path>,
     until: Option<usize>,
+    mode: Option<&str>,
 ) -> String {
     let re_start = Regex::new(&format!("```{}.*", lang)).expect("Failed to create regex");
     let re_end = Regex::new(r"```$").expect("Failed to create regex");
     let re_tag = Regex::new(r"\\#S:([\w,=/\.]+)").expect("Failed to create regex");
     let mut keep = false;
     let mut include = false;
+    let mut current_mode = Mode::new(mode);
     let mut output = String::with_capacity(buffer.len());
     for (i, line) in buffer.lines().enumerate() {
         if let Some(until) = until {
@@ -92,6 +109,9 @@ fn remove_non_code(
         }
         if re_start.is_match(line) {
             keep = true;
+            if let ModeState::Disabled = current_mode.state {
+                keep = false;
+            }
             continue;
         }
         if re_end.is_match(line) {
@@ -106,6 +126,15 @@ fn remove_non_code(
                         INCLUDE => include = true,
                         SKIP => include = false,
                         _ => (),
+                    }
+                    if tag.contains(MODE) {
+                        let mut t = tag.split('=');
+                        t.next();
+                        match (current_mode.state.clone(), t.next()) {
+                            (ModeState::Active, Some(m)) if current_mode.m.as_str() != m => current_mode.state = ModeState::Disabled,
+                            (ModeState::Disabled, Some(m)) if current_mode.m.as_str() == m => current_mode.state = ModeState::Active,
+                            _ => (),
+                        }
                     }
                     if tag.contains(EXTERNAL) {
                         let mut t = tag.split('=');
@@ -123,6 +152,12 @@ fn remove_non_code(
                                     .to_owned();
                                 let path_to_external =
                                     format!("{}/{}", path_to_external, external_file);
+                                if let ModeState::Disabled = current_mode.state {
+                                    match t.next() {
+                                        Some(m) if m == current_mode.m.as_str() => (),
+                                        _ => continue,
+                                    }
+                                }
                                 output.push_str(&add_external(&path_to_external));
                             }
                             _ => (),
@@ -169,7 +204,7 @@ fn remove_code(buffer: &String) -> String {
                         if let Some(lang) = t.next() {
                             output.push_str("??? question \"Check your code\"\n");
                             output.push_str(&format!("    ```{}\n", lang));
-                            let content = remove_non_code(&buffer, lang, None, Some(i));
+                            let content = remove_non_code(&buffer, lang, None, Some(i), t.next());
                             let content: String = content.lines()
                                 .map(|l| format!("    {}\n", l))
                                 .collect();
@@ -195,4 +230,13 @@ fn add_external(file: &str) -> String {
         .expect("Failed to read external file");
 
     String::from_utf8(buffer).expect("Failed to parse buffer as U8")
+}
+
+impl Mode {
+    fn new(mode: Option<&str>) -> Self {
+        match mode {
+            Some(m) => Mode{ m: m.to_string(), state: ModeState::Disabled },
+            None => Mode{ m: Default::default(), state: ModeState::Off },
+        }
+    }
 }
