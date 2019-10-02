@@ -11,6 +11,7 @@ const SKIP: &'static str = "SKIP";
 const HIDE: &'static str = "HIDE";
 const EXTERNAL: &'static str = "EXTERNAL";
 const CHECK: &'static str = "CHECK";
+const EXTRA: &'static str = "EXTRA";
 const MODE: &'static str = "MODE";
 
 #[derive(Debug)]
@@ -76,12 +77,16 @@ fn generate_md(matches: &ArgMatches) -> std::io::Result<()> {
     let input_file = matches.value_of("INPUT").unwrap();
     let output_file = matches.value_of("OUTPUT").unwrap();
 
+    let input_path = Path::new(&input_file)
+        .parent()
+        .expect("Input file has no parent directory");
+
     let mut input_file = File::open(input_file)?;
     let mut buffer = Vec::new();
     input_file.read_to_end(&mut buffer)?;
 
     let input_buffer = String::from_utf8(buffer).expect("Failed to parse buffer as U8");
-    let just_md = remove_code(&input_buffer);
+    let just_md = remove_code(&input_buffer, Some(input_path));
     let mut out = File::create(output_file)?;
     write!(&mut out, "{}", just_md)?;
     Ok(())
@@ -173,11 +178,13 @@ fn remove_non_code(
     output
 }
 
-fn remove_code(buffer: &String) -> String {
+fn remove_code(buffer: &String, input_path: Option<&Path>) -> String {
     let re_code = Regex::new(r"```").expect("Failed to create regex");
     let re_tag = Regex::new(r"\\#S:([\w,=/\.]+)").expect("Failed to create regex");
     let mut code = false;
     let mut show = true;
+    let mut extra = false;
+    let mut extra_content = String::new();
     let mut output = String::with_capacity(buffer.len());
     for (i, line) in buffer.lines().enumerate() {
         if re_code.is_match(line) {
@@ -189,6 +196,9 @@ fn remove_code(buffer: &String) -> String {
                     continue;
                 }
             }
+            if extra {
+                continue;
+            }
         }
         if re_tag.is_match(line) {
             for cap in re_tag.captures_iter(line) {
@@ -196,6 +206,7 @@ fn remove_code(buffer: &String) -> String {
                 for tag in tags.iter() {
                     match *tag {
                         HIDE => show = false,
+                        EXTRA => extra = true,
                         _ => (),
                     }
                     if tag.contains(CHECK) {
@@ -204,20 +215,26 @@ fn remove_code(buffer: &String) -> String {
                         if let Some(lang) = t.next() {
                             output.push_str("??? question \"Check your code\"\n");
                             output.push_str(&format!("    ```{}\n", lang));
-                            let content = remove_non_code(&buffer, lang, None, Some(i), t.next());
+                            let content = remove_non_code(&buffer, lang, input_path, Some(i), t.next());
                             let content: String = content.lines()
                                 .map(|l| format!("    {}\n", l))
                                 .collect();
                             output.push_str(&content);
+                            output.push_str(&extra_content);
                             output.push_str("    ```\n");
+                            extra_content.clear();
+                            extra = false;
                         }
                     }
                 }
             }
             continue;
         }
-        if !code || code && show {
+        if !code || code && show && !extra {
             output.push_str(&format!("{}\n", line));
+        }
+        if extra {
+            extra_content.push_str(&format!("{}\n", line));
         }
     }
     output
