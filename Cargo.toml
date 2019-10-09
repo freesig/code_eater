@@ -3,6 +3,9 @@ name = "single_source"
 version = "0.1.0"
 authors = ["Tom Gowan <tomrgowan@gmail.com>"]
 edition = "2018"
+description = "Generate code files from snippets in md tutorial files"
+license = "MIT"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
