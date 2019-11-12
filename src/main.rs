@@ -61,8 +61,9 @@ fn generate_code(matches: &ArgMatches) -> std::io::Result<()> {
 
     let input_path = Path::new(&input_file)
         .parent()
-        .expect("Input file has no parent directory");
-    let mut input_file = File::open(input_file)?;
+        .expect(&format!("Cannot find the markdown source at: {}", input_file));
+    let mut input_file = File::open(input_file)
+        .expect(&format!("Cannot find the markdown source at: {}", input_file));
     let mut buffer = Vec::new();
     input_file.read_to_end(&mut buffer)?;
 
@@ -79,9 +80,10 @@ fn generate_md(matches: &ArgMatches) -> std::io::Result<()> {
 
     let input_path = Path::new(&input_file)
         .parent()
-        .expect("Input file has no parent directory");
+        .expect(&format!("Cannot find the markdown source at: {}", input_file));
 
-    let mut input_file = File::open(input_file)?;
+    let mut input_file = File::open(input_file)
+        .expect(&format!("Cannot find the markdown source at: {}", input_file));
     let mut buffer = Vec::new();
     input_file.read_to_end(&mut buffer)?;
 
