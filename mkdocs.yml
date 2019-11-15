@@ -4,8 +4,11 @@ site_name: Single Source Tutorial
 repo_url: https://github.com/freesig/single_source 
 
 nav:
-  - Single Source Tutorial: tutorial.md
+  - What to use single source for: usecase.md
+  - Creating an integration test - tutorial: tutorial.md
   - Rendered version: tutorial_rendered.md
+  - Runnable - tutorial: runnable_tutorial.md
+  - Rendered version: runnable_tutorial_rendered.md
 
 # Theme
 theme:
