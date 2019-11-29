@@ -2,6 +2,12 @@
 This ius a simple utility that allows you to generate working code from your markdown files.
 This is super early alpha so there's probably missing parts and it's a bit hacky.
 
+## Installation
+Single source can be installed through cargo like:
+```bash
+cargo install single_source
+```
+
 ## Setup
 Just put you code in your md file as usual marked with the language like:
 \`\`\`\rust
