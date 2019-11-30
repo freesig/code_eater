@@ -15,11 +15,8 @@ fn my_cool(stuff: ()) {
 }
 \`\`\`
 Then proceding that you mark it with the flag `\#S:` (yeh I know it's a weird marker but try finding something markdown doesn't use) and some tags.
-### Tags
-- `INCLUDE` All code blocks in your language proceeding this tag will be included in the generated _code_ file.
-- `SKIP` All code blocks in your language proceeding this tag will be __not__ be included in the generated _code_ file.
-- `EXTERNAL=path/to/file` Include the code from this external file in the generated _code_ file at this location.
-- `HIDE` Hide only the next code block from showing up in the generate _md_ file.
+### Reference
+[Refence](https://single.nottodaycaesar.com/reference/)
 
 ## Usage
 ### Generate Code
@@ -38,6 +35,9 @@ Example:
 ```bash
 single_source md path/to/my_tutorial_source.md path/to/finished_tutorial.md
 ```
+### Tutorials
+[Integration tests](https://single.nottodaycaesar.com/tutorial/)
+[runnable tutorials](https://single.nottodaycaesar.com/runnable_tutorial/)
 
 ## Example
 \#S:EXTERNAL=external.rs

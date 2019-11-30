@@ -6,15 +6,15 @@ repo_url: https://github.com/freesig/single_source
 nav:
   - What to use single source for: usecase.md
   - Creating an integration test - tutorial: tutorial.md
-  - Rendered version: tutorial_rendered.md
   - Runnable - tutorial: runnable_tutorial.md
-  - Rendered version: runnable_tutorial_rendered.md
+  - Reference: reference.md
+  - Rendered versions of docs:
+    - Integration: tutorial_rendered.md
+    - Runnable: runnable_tutorial_rendered.md
 
 # Theme
 theme:
   name: 'material'
-  feature:
-    tabs: true
   font:
     text: 'Work Sans'
     code: 'Roboto Mono'
