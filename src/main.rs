@@ -13,6 +13,7 @@ const EXTERNAL: &'static str = "EXTERNAL";
 const CHECK: &'static str = "CHECK";
 const EXTRA: &'static str = "EXTRA";
 const MODE: &'static str = "MODE";
+const CHANGE: &'static str = "CHANGE";
 
 #[derive(Debug)]
 struct Mode {
@@ -59,11 +60,14 @@ fn generate_code(matches: &ArgMatches) -> std::io::Result<()> {
     let lang = matches.value_of("LANG").unwrap();
     let mode = matches.value_of("MODE");
 
-    let input_path = Path::new(&input_file)
-        .parent()
-        .expect(&format!("Cannot find the markdown source at: {}", input_file));
-    let mut input_file = File::open(input_file)
-        .expect(&format!("Cannot find the markdown source at: {}", input_file));
+    let input_path = Path::new(&input_file).parent().expect(&format!(
+        "Cannot find the markdown source at: {}",
+        input_file
+    ));
+    let mut input_file = File::open(input_file).expect(&format!(
+        "Cannot find the markdown source at: {}",
+        input_file
+    ));
     let mut buffer = Vec::new();
     input_file.read_to_end(&mut buffer)?;
 
@@ -78,12 +82,15 @@ fn generate_md(matches: &ArgMatches) -> std::io::Result<()> {
     let input_file = matches.value_of("INPUT").unwrap();
     let output_file = matches.value_of("OUTPUT").unwrap();
 
-    let input_path = Path::new(&input_file)
-        .parent()
-        .expect(&format!("Cannot find the markdown source at: {}", input_file));
+    let input_path = Path::new(&input_file).parent().expect(&format!(
+        "Cannot find the markdown source at: {}",
+        input_file
+    ));
 
-    let mut input_file = File::open(input_file)
-        .expect(&format!("Cannot find the markdown source at: {}", input_file));
+    let mut input_file = File::open(input_file).expect(&format!(
+        "Cannot find the markdown source at: {}",
+        input_file
+    ));
     let mut buffer = Vec::new();
     input_file.read_to_end(&mut buffer)?;
 
@@ -135,14 +142,21 @@ fn remove_non_code(
                         INCLUDE => include = true,
                         SKIP => include = false,
                         EXTRA => extra = true,
+                        CHANGE => {
+                            output = change(output, buffer, i);
+                        }
                         _ => (),
                     }
                     if tag.contains(MODE) {
                         let mut t = tag.split('=');
                         t.next();
                         match (current_mode.state.clone(), t.next()) {
-                            (ModeState::Active, Some(m)) if current_mode.m.as_str() != m => current_mode.state = ModeState::Disabled,
-                            (ModeState::Disabled, Some(m)) if current_mode.m.as_str() == m => current_mode.state = ModeState::Active,
+                            (ModeState::Active, Some(m)) if current_mode.m.as_str() != m => {
+                                current_mode.state = ModeState::Disabled
+                            }
+                            (ModeState::Disabled, Some(m)) if current_mode.m.as_str() == m => {
+                                current_mode.state = ModeState::Active
+                            }
                             _ => (),
                         }
                     }
@@ -220,10 +234,10 @@ fn remove_code(buffer: &String, input_path: Option<&Path>) -> String {
                         if let Some(lang) = t.next() {
                             output.push_str("??? question \"Check your code\"\n");
                             output.push_str(&format!("    ```{}\n", lang));
-                            let content = remove_non_code(&buffer, lang, input_path, Some(i), t.next());
-                            let content: String = content.lines()
-                                .map(|l| format!("    {}\n", l))
-                                .collect();
+                            let content =
+                                remove_non_code(&buffer, lang, input_path, Some(i), t.next());
+                            let content: String =
+                                content.lines().map(|l| format!("    {}\n", l)).collect();
                             output.push_str(&content);
                             output.push_str(&extra_content);
                             output.push_str("    ```\n");
@@ -254,11 +268,71 @@ fn add_external(file: &str) -> String {
     String::from_utf8(buffer).expect("Failed to parse buffer as U8")
 }
 
+fn change(input: String, buffer: &String, from: usize) -> String {
+    // Get diff
+    let re_diff = Regex::new(&format!("```{}.*", "diff")).expect("Failed to create regex");
+    let re_end = Regex::new(r"```$").expect("Failed to create regex");
+    let re_add = Regex::new(r"\+.*").expect("Failed to create regex");
+    let re_sub = Regex::new(r"\-.*").expect("Failed to create regex");
+    let mut diff = false;
+    let mut old = vec![];
+    let mut new = vec![];
+    for line in buffer.lines().skip(from) {
+        if re_end.is_match(line) {
+            break;
+        }
+        if diff {
+            if re_add.is_match(line) {
+                let c: String = line.chars().skip(1).collect();
+                new.push(c);
+            } else if re_sub.is_match(line) {
+                let c: String = line.chars().skip(1).collect();
+                old.push(c.trim().to_owned());
+            } else {
+                new.push(line.to_owned());
+                old.push(line.trim().to_owned());
+            }
+        }
+        if re_diff.is_match(line) {
+            diff = true;
+        }
+    }
+
+    let match_line = old.join("");
+    let step = old.len();
+    let input_buffer: Vec<_> = input.lines().map(|l| l.trim()).collect();
+    let mut output = String::with_capacity(input.len());
+
+    let mut start_line = None;
+    for i in 0..input_buffer.len() {
+        if i + step + 1 >= input_buffer.len() {
+            break;
+        }
+        let squash = input_buffer[i..(i+step+1)].join("");
+        if squash == match_line {
+            start_line = Some(i);
+        }
+    }
+    if let Some(start_line) = start_line {
+        for s in input.lines().take(start_line).chain(new.iter().map(|s|s.as_str())).chain(input.lines().skip(start_line + step + 1)) {
+            output.push_str(&format!("{}\n", s));
+        }
+    }
+
+    output
+}
+
 impl Mode {
     fn new(mode: Option<&str>) -> Self {
         match mode {
-            Some(m) => Mode{ m: m.to_string(), state: ModeState::Disabled },
-            None => Mode{ m: Default::default(), state: ModeState::Off },
+            Some(m) => Mode {
+                m: m.to_string(),
+                state: ModeState::Disabled,
+            },
+            None => Mode {
+                m: Default::default(),
+                state: ModeState::Off,
+            },
         }
     }
 }
