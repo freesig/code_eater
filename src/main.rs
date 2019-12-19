@@ -106,6 +106,7 @@ fn remove_non_code(
     let re_tag = Regex::new(r"\\#S:([\w,=/\.]+)").expect("Failed to create regex");
     let mut keep = false;
     let mut include = false;
+    let mut extra = false;
     let mut current_mode = Mode::new(mode);
     let mut output = String::with_capacity(buffer.len());
     for (i, line) in buffer.lines().enumerate() {
@@ -123,6 +124,7 @@ fn remove_non_code(
         }
         if re_end.is_match(line) {
             keep = false;
+            extra = false;
             continue;
         }
         if re_tag.is_match(line) {
@@ -132,6 +134,7 @@ fn remove_non_code(
                     match *tag {
                         INCLUDE => include = true,
                         SKIP => include = false,
+                        EXTRA => extra = true,
                         _ => (),
                     }
                     if tag.contains(MODE) {
@@ -173,7 +176,7 @@ fn remove_non_code(
                 }
             }
         }
-        if keep && include {
+        if keep && include && !extra {
             output.push_str(&format!("{}\n", line));
         }
     }
